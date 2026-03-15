@@ -1,34 +1,45 @@
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import torch
 
+_model = None
+_tokenizer = None
 
-class LLMModel:
 
-    def __init__(self):
+def get_llm():
+
+    global _model
+    global _tokenizer
+
+    if _model is None:
 
         model_name = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
 
         print("Loading LLM...")
 
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        _tokenizer = AutoTokenizer.from_pretrained(model_name)
 
-        self.model = AutoModelForCausalLM.from_pretrained(
+        _model = AutoModelForCausalLM.from_pretrained(
             model_name,
-            torch_dtype=torch.float32,
+            dtype=torch.float32,
             device_map="cpu"
         )
 
         print("LLM loaded successfully.")
 
-    def generate(self, prompt, max_tokens=200):
+    return _model, _tokenizer
 
-        inputs = self.tokenizer(prompt, return_tensors="pt")
 
-        outputs = self.model.generate(
-            **inputs,
-            max_new_tokens=max_tokens
-        )
+def generate(prompt, max_tokens=200):
 
-        response = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+    model, tokenizer = get_llm()
 
-        return response
+    inputs = tokenizer(prompt, return_tensors="pt")
+
+    outputs = model.generate(
+        **inputs,
+        max_new_tokens=max_tokens
+    )
+
+    response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+    return response[len(prompt):]
