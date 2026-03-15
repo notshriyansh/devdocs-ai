@@ -3,8 +3,8 @@ import os
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from build_index import build_index
-from app.rag.retriever import Retriever
+from scripts.build_index import build_index
+from app.services.chat_service import ChatService
 
 
 documents = [
@@ -16,14 +16,18 @@ documents = [
 
 vector_store = build_index(documents)
 
-retriever = Retriever(vector_store)
+chat = ChatService(vector_store)
 
 
 query = "What is FastAPI?"
 
-results = retriever.retrieve(query)
+answer, docs = chat.chat(query)
 
-print("\nRetrieved documents:\n")
+print("\nRetrieved docs:\n")
 
-for r in results:
-    print("-", r)
+for d in docs:
+    print("-", d)
+
+print("\nAI Answer:\n")
+
+print(answer)
