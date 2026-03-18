@@ -1,18 +1,19 @@
-def chunk_text(text: str, chunk_size: int = 500, overlap: int = 50):
-    """
-    splitting larger text into smaller chunks
-    """
+def chunk_text(text: str, chunk_size: int = 500):
+
+    paragraphs = text.split("\n")
 
     chunks = []
-    start = 0
+    current_chunk = ""
 
-    while start < len(text):
-        end = start + chunk_size
+    for para in paragraphs:
 
-        chunk = text[start:end]
+        if len(current_chunk) + len(para) < chunk_size:
+            current_chunk += para + "\n"
+        else:
+            chunks.append(current_chunk)
+            current_chunk = para + "\n"
 
-        chunks.append(chunk)
-
-        start = end - overlap
+    if current_chunk:
+        chunks.append(current_chunk)
 
     return chunks
