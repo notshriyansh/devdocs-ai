@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
+from fastapi.responses import StreamingResponse
 
 from app.rag.vector_store import VectorStore
 from app.services.chat_service import ChatService
@@ -17,12 +18,9 @@ class ChatRequest(BaseModel):
     question: str
 
 
-@router.post("/chat")
-def chat(request: ChatRequest):
+@router.post("/chat/stream")
+def chat_stream(request: ChatRequest):
 
-    answer, sources = chat_service.chat(request.question)
+    generator, docs = chat_service.stream_chat(request.question)
 
-    return {
-        "answer": answer,
-        "sources": sources
-    }
+    return StreamingResponse(generator, media_type="text/plain")

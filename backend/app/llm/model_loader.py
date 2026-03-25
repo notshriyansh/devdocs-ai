@@ -29,7 +29,7 @@ def get_llm():
     return _model, _tokenizer
 
 
-def generate(prompt, max_tokens=200):
+def generate_stream(prompt, max_tokens=200):
 
     model, tokenizer = get_llm()
 
@@ -37,9 +37,18 @@ def generate(prompt, max_tokens=200):
 
     outputs = model.generate(
         **inputs,
-        max_new_tokens=max_tokens
+        max_new_tokens=max_tokens,
+        do_sample=True,
+        temperature=0.7,
+        top_p=0.9
     )
 
-    response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    text = tokenizer.decode(outputs[0], skip_special_tokens=True)
 
-    return response[len(prompt):]
+    if text.startswith(prompt):
+        generated = text[len(prompt):]
+    else:
+        generated = text
+
+    for word in generated.split():
+        yield word + " "

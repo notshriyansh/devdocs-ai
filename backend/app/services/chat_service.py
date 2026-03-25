@@ -1,6 +1,6 @@
 from app.rag.retriever import Retriever
 from app.llm.prompt_builder import build_prompt
-from app.llm.model_loader import generate
+from app.llm.model_loader import generate_stream
 
 
 class ChatService:
@@ -8,6 +8,14 @@ class ChatService:
     def __init__(self, vector_store):
 
         self.retriever = Retriever(vector_store)
+
+    def stream_chat(self, query):
+
+        docs = self.retriever.retrieve(query)
+
+        prompt = build_prompt(query, docs)
+
+        return generate_stream(prompt), docs
 
     def chat(self, query):
 
@@ -17,10 +25,8 @@ class ChatService:
 
         raw_answer = generate(prompt)
 
-        # clean answer (remove prompt echo)
         answer = raw_answer.strip()
 
-        # deduplicate sources
         seen = set()
         unique_sources = []
 
