@@ -8,12 +8,12 @@ class VectorStore:
     def __init__(self, dimension):
 
         self.index = faiss.IndexFlatL2(dimension)
-        self.texts = []
+        self.documents = []   # now stores dicts
 
-    def add(self, embeddings, texts):
+    def add(self, embeddings, docs):
 
         self.index.add(np.array(embeddings))
-        self.texts.extend(texts)
+        self.documents.extend(docs)
 
     def search(self, query_embedding, k=5):
 
@@ -21,7 +21,7 @@ class VectorStore:
             np.array([query_embedding]), k
         )
 
-        results = [self.texts[i] for i in indices[0]]
+        results = [self.documents[i] for i in indices[0]]
 
         return results
 
@@ -29,22 +29,21 @@ class VectorStore:
 
         faiss.write_index(self.index, f"{path}/faiss.index")
 
-        with open(f"{path}/texts.pkl", "wb") as f:
-            pickle.dump(self.texts, f)
+        with open(f"{path}/docs.pkl", "wb") as f:
+            pickle.dump(self.documents, f)
 
     @classmethod
     def load(cls, path):
 
         index = faiss.read_index(f"{path}/faiss.index")
 
-        with open(f"{path}/texts.pkl", "rb") as f:
-            texts = pickle.load(f)
+        with open(f"{path}/docs.pkl", "rb") as f:
+            docs = pickle.load(f)
 
         dimension = index.d
 
-        vector_store = cls(dimension)
+        vs = cls(dimension)
+        vs.index = index
+        vs.documents = docs
 
-        vector_store.index = index
-        vector_store.texts = texts
-
-        return vector_store
+        return vs

@@ -1,6 +1,6 @@
-def build_prompt(query, context_docs):
+def build_prompt(query, docs):
 
-    context = "\n\n".join(context_docs)
+    context = "\n\n".join([doc["text"] for doc in docs])
 
     prompt = f"""
 You are DevDocs AI, a helpful assistant for programming documentation.

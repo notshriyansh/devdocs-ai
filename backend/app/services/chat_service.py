@@ -15,6 +15,25 @@ class ChatService:
 
         prompt = build_prompt(query, docs)
 
-        answer = generate(prompt)
+        raw_answer = generate(prompt)
 
-        return answer, docs
+        # clean answer (remove prompt echo)
+        answer = raw_answer.strip()
+
+        # deduplicate sources
+        seen = set()
+        unique_sources = []
+
+        for doc in docs:
+
+            key = (doc["text"], doc["url"])
+
+            if key not in seen:
+                seen.add(key)
+
+                unique_sources.append({
+                    "text": doc["text"][:200],  # trim
+                    "url": doc["url"]
+                })
+
+        return answer, unique_sources
