@@ -1,54 +1,48 @@
-from transformers import AutoTokenizer, AutoModelForCausalLM
-import torch
+import os
+from groq import Groq
+from dotenv import load_dotenv
 
-_model = None
-_tokenizer = None
+load_dotenv()
 
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama3-8b-8192")
 
-def get_llm():
-
-    global _model
-    global _tokenizer
-
-    if _model is None:
-
-        model_name = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
-
-        print("Loading LLM...")
-
-        _tokenizer = AutoTokenizer.from_pretrained(model_name)
-
-        _model = AutoModelForCausalLM.from_pretrained(
-            model_name,
-            dtype=torch.float32,
-            device_map="cpu"
-        )
-
-        print("LLM loaded successfully.")
-
-    return _model, _tokenizer
+client = Groq(api_key=GROQ_API_KEY)
 
 
-def generate_stream(prompt, max_tokens=200):
-
-    model, tokenizer = get_llm()
-
-    inputs = tokenizer(prompt, return_tensors="pt")
-
-    outputs = model.generate(
-        **inputs,
-        max_new_tokens=max_tokens,
-        do_sample=True,
+def generate(prompt: str) -> str:
+    """
+    Non-streaming response (for /chat endpoint)
+    """
+    response = client.chat.completions.create(
+        model=GROQ_MODEL,
+        messages=[
+            {"role": "user", "content": prompt}
+        ],
         temperature=0.7,
-        top_p=0.9
     )
 
-    text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    return response.choices[0].message.content
 
-    if text.startswith(prompt):
-        generated = text[len(prompt):]
-    else:
-        generated = text
 
-    for word in generated.split():
-        yield word + " "
+def generate_stream(prompt: str):
+    try:
+        stream = client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7,
+            stream=True
+        )
+
+        for chunk in stream:
+            try:
+                content = chunk.choices[0].delta.content
+                if content:
+                    yield content
+            except Exception:
+                continue 
+
+    except Exception as e:
+        yield f"[ERROR]: {str(e)}"
