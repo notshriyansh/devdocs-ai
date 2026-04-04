@@ -13,13 +13,18 @@ def scrape_docs(url: str) -> str:
 
         soup = BeautifulSoup(response.text, "html.parser")
 
-        for tag in soup(["script", "style"]):
+        main_content = soup.find("main") or soup.find("article") or soup.find("body") or soup
+
+        for tag in main_content(["script", "style", "nav", "footer", "header", "aside"]):
             tag.decompose()
 
-        text = soup.get_text(separator="\n")
+        text = main_content.get_text(separator="\n")
 
         lines = [line.strip() for line in text.splitlines()]
         clean_text = "\n".join(line for line in lines if line)
+
+        if len(clean_text) < 300:
+            raise ValueError(f"Extracted content is too short ({len(clean_text)} chars). Likely noise or protected page.")
 
         return clean_text
 

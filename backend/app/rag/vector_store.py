@@ -8,9 +8,12 @@ class VectorStore:
     def __init__(self, dimension):
 
         self.index = faiss.IndexFlatL2(dimension)
-        self.documents = []   # now stores dicts
+        self.documents = []   
 
     def add(self, embeddings, docs):
+
+        for i, doc in enumerate(docs):
+            doc["embedding"] = embeddings[i]
 
         self.index.add(np.array(embeddings))
         self.documents.extend(docs)
