@@ -23,8 +23,8 @@ class ChatService:
 
         return unique_sources
 
-    def chat(self, query):
-        docs = self.retriever.retrieve(query)
+    def chat(self, query, doc_id=None):
+        docs = self.retriever.retrieve(query, doc_id=doc_id)
         prompt = build_prompt(query, docs)
 
         raw_answer = generate(prompt)
@@ -37,13 +37,17 @@ class ChatService:
             "sources": sources
         }
 
-    def stream_chat(self, query):
-        docs = self.retriever.retrieve(query)
+    def stream_chat(self, query, doc_id=None):
+        docs = self.retriever.retrieve(query, doc_id=doc_id)
         prompt = build_prompt(query, docs)
         sources = self._format_sources(docs)
 
         def generator():
-            for chunk in generate_stream(prompt):
-                yield chunk
+            try:
+                for chunk in generate_stream(prompt):
+                    if chunk:
+                        yield chunk
+            except Exception as e:
+                yield f"\n[ERROR]: {str(e)}\n"
 
         return generator(), sources
