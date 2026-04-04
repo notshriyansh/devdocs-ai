@@ -1,6 +1,10 @@
 import { useState } from "react";
 
-export default function DocumentUpload() {
+interface Props {
+  onUploadSuccess: (doc: { id: string; title: string }) => void;
+}
+
+export default function DocumentUpload({ onUploadSuccess }: Props) {
   const [url, setUrl] = useState("");
   const [text, setText] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -19,46 +23,56 @@ export default function DocumentUpload() {
     setStatus("Uploading...");
 
     try {
+      let response;
+      let data;
       if (url) {
         const formData = new FormData();
         formData.append("url", url);
 
-        const response = await fetch(`${apiUrl}/upload-url`, {
+        response = await fetch(`${apiUrl}/upload-url`, {
           method: "POST",
           body: formData,
         });
 
-        const data = await response.json();
+        data = await response.json();
 
         if (response.ok) {
-          setStatus(`✅ ${data.message}`);
+          onUploadSuccess({
+            id: data.doc_id,
+            title: url,
+          });
           setUrl("");
         } else {
           setStatus(`❌ ${data.detail}`);
+          return;
         }
-
-        return;
-      }
-
-      const formData = new FormData();
-
-      if (text) formData.append("text", text);
-      if (file) formData.append("file", file);
-
-      const response = await fetch(`${apiUrl}/upload-documents`, {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setStatus(`✅ ${data.message}`);
-        setText("");
-        setFile(null);
       } else {
-        setStatus(`❌ ${data.detail}`);
+        const formData = new FormData();
+        if (text) formData.append("text", text);
+        if (file) formData.append("file", file);
+
+        response = await fetch(`${apiUrl}/upload-documents`, {
+          method: "POST",
+          body: formData,
+        });
+
+        data = await response.json();
+
+        if (response.ok) {
+          onUploadSuccess({
+            id: data.doc_id,
+            title: file?.name || "Manual Input",
+          });
+
+          setText("");
+          setFile(null);
+        } else {
+          setStatus(`❌ ${data.detail}`);
+          return;
+        }
       }
+
+      setStatus(`✅ ${data.message}`);
     } catch (error: any) {
       setStatus(`❌ ${error.message}`);
     } finally {
@@ -67,54 +81,36 @@ export default function DocumentUpload() {
   };
 
   return (
-    <div className="mb-6 p-5 border rounded-xl bg-white shadow-sm">
-      <h3 className="text-lg font-semibold mb-2">Add Knowledge Source</h3>
-
-      <p className="text-sm text-gray-500 mb-4">
-        Enter a documentation URL, paste text, or upload a .txt file.
-      </p>
-
+    <div className="p-3 border rounded-xl bg-gray-50 dark:bg-gray-900/50 border-gray-200 dark:border-gray-700">
       <input
         value={url}
         onChange={(e) => setUrl(e.target.value)}
-        placeholder="https://docs.example.com"
-        className="w-full p-3 border rounded-lg mb-3 outline-none focus:ring-2 focus:ring-blue-400"
+        placeholder="Enter documentation URL"
+        className="w-full p-2 text-sm rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 mb-2"
       />
-
-      <p className="text-center text-gray-400 text-sm mb-2">OR</p>
 
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
-        placeholder="Paste documentation text..."
-        rows={4}
-        className="w-full p-3 border rounded-lg mb-3 outline-none focus:ring-2 focus:ring-blue-400"
+        placeholder="Paste text..."
+        className="w-full p-2 text-sm rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 mb-2"
       />
 
       <input
         type="file"
-        accept=".txt"
-        onChange={(e) => setFile(e.target.files ? e.target.files[0] : null)}
-        className="mb-3"
+        onChange={(e) => setFile(e.target.files?.[0] || null)}
+        className="text-xs mb-2"
       />
 
       <button
         onClick={handleUpload}
         disabled={loading}
-        className="w-full py-2 bg-blue-500 text-white rounded-lg disabled:bg-gray-300"
+        className="w-full bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 rounded-md transition"
       >
-        {loading ? "Processing..." : "Upload"}
+        {loading ? "Uploading..." : "Upload"}
       </button>
 
-      {status && (
-        <p
-          className={`mt-3 text-sm ${
-            status.startsWith("❌") ? "text-red-500" : "text-green-600"
-          }`}
-        >
-          {status}
-        </p>
-      )}
+      {status && <p className="text-xs mt-2 text-gray-500">{status}</p>}
     </div>
   );
 }
