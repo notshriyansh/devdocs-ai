@@ -24,7 +24,11 @@ class VectorStore:
             np.array([query_embedding]), k
         )
 
-        results = [self.documents[i] for i in indices[0]]
+        results = [
+            self.documents[i]
+            for i in indices[0]
+            if 0 <= i < len(self.documents)
+        ]
 
         return results
 
