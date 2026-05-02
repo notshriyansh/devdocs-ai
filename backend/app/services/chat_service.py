@@ -23,8 +23,8 @@ class ChatService:
 
         return unique_sources
 
-    def chat(self, query, doc_id=None):
-        docs = self.retriever.retrieve(query, doc_id=doc_id)
+    def chat(self, query, doc_id=None, user_id=None):
+        docs = self.retriever.retrieve(query, doc_id=doc_id, user_id=user_id)
         prompt = build_prompt(query, docs)
 
         raw_answer = generate(prompt)
@@ -37,8 +37,8 @@ class ChatService:
             "sources": sources
         }
 
-    def stream_chat(self, query, doc_id=None):
-        docs = self.retriever.retrieve(query, doc_id=doc_id)
+    def stream_chat(self, query, doc_id=None, user_id=None):
+        docs = self.retriever.retrieve(query, doc_id=doc_id, user_id=user_id)
         prompt = build_prompt(query, docs)
         sources = self._format_sources(docs)
 
