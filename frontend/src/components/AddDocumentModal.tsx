@@ -17,6 +17,7 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   onUpload: (doc: { id: string; title: string }) => void;
+  getAuthHeaders: () => Promise<Record<string, string>>;
 }
 
 const tabs: { id: Tab; icon: React.ReactNode; label: string }[] = [
@@ -29,7 +30,12 @@ const tabs: { id: Tab; icon: React.ReactNode; label: string }[] = [
 const inputCls =
   "w-full mt-1 px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/60 text-sm text-gray-800 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-400 dark:focus:border-blue-500 transition-all";
 
-export default function AddDocumentModal({ isOpen, onClose, onUpload }: Props) {
+export default function AddDocumentModal({
+  isOpen,
+  onClose,
+  onUpload,
+  getAuthHeaders,
+}: Props) {
   const [activeTab, setActiveTab] = useState<Tab>("url");
   const [title, setTitle] = useState("");
   const [url, setUrl] = useState("");
@@ -63,17 +69,30 @@ export default function AddDocumentModal({ isOpen, onClose, onUpload }: Props) {
 
     try {
       let res: Response | undefined;
-      let data: { doc_id: string };
+      let data: { doc_id: string; title?: string; detail?: string };
+      const headers = await getAuthHeaders();
 
       if (activeTab === "url") {
         const fd = new FormData();
         fd.append("url", url);
-        res = await fetch(`${apiUrl}/upload-url`, { method: "POST", body: fd });
+        res = await fetch(`${apiUrl}/upload-url`, {
+          method: "POST",
+          body: fd,
+          headers: {
+            Authorization: headers.Authorization || "",
+          },
+        });
         data = await res.json();
       } else if (activeTab === "youtube") {
         const fd = new FormData();
         fd.append("url", youtubeUrl);
-        res = await fetch(`${apiUrl}/upload-url`, { method: "POST", body: fd });
+        res = await fetch(`${apiUrl}/upload-url`, {
+          method: "POST",
+          body: fd,
+          headers: {
+            Authorization: headers.Authorization || "",
+          },
+        });
         data = await res.json();
       } else {
         const fd = new FormData();
@@ -82,6 +101,9 @@ export default function AddDocumentModal({ isOpen, onClose, onUpload }: Props) {
         res = await fetch(`${apiUrl}/upload-documents`, {
           method: "POST",
           body: fd,
+          headers: {
+            Authorization: headers.Authorization || "",
+          },
         });
         data = await res.json();
       }
@@ -90,7 +112,13 @@ export default function AddDocumentModal({ isOpen, onClose, onUpload }: Props) {
         setStatus("success");
         onUpload({
           id: data.doc_id,
-          title: title || url || youtubeUrl || file?.name || "New Document",
+          title:
+            title ||
+            data.title ||
+            url ||
+            youtubeUrl ||
+            file?.name ||
+            "New Document",
         });
         setTimeout(() => {
           setStatus("idle");
@@ -102,6 +130,7 @@ export default function AddDocumentModal({ isOpen, onClose, onUpload }: Props) {
           onClose();
         }, 900);
       } else {
+        console.error(data?.detail || "Upload failed");
         setStatus("error");
       }
     } catch {

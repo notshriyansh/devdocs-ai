@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
+import { SignInButton, SignUpButton, useAuth } from "@clerk/clerk-react";
 import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
 import ChatArea from "./components/ChatArea";
@@ -17,7 +18,14 @@ interface HistoryItem {
   title: string;
 }
 
+interface HistoryResponseItem {
+  id: string;
+  query: string;
+  response: string;
+}
+
 export default function App() {
+  const { getToken, isLoaded, isSignedIn } = useAuth();
   const apiUrl = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
@@ -30,6 +38,22 @@ export default function App() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Helper to add auth headers
+  const getAuthHeaders = async (): Promise<Record<string, string>> => {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    
+    if (isSignedIn) {
+      const token = await getToken();
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+    }
+    
+    return headers;
+  };
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDarkMode);
@@ -51,11 +75,13 @@ export default function App() {
 
   const loadHistory = async () => {
     try {
-      const res = await fetch(`${apiUrl}/history`);
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${apiUrl}/history`, { headers });
+      if (!res.ok) return;
       const data = await res.json();
       setHistory(
-        data.history.map((h: { query: string }, i: number) => ({
-          id: i.toString(),
+        data.history.map((h: HistoryResponseItem) => ({
+          id: h.id,
           title: h.query.slice(0, 42),
         })),
       );
@@ -64,9 +90,29 @@ export default function App() {
     }
   };
 
+  const loadDocuments = async () => {
+    try {
+      const headers = await getAuthHeaders();
+      const res = await fetch(`${apiUrl}/documents`, { headers });
+      if (!res.ok) return;
+      const data = await res.json();
+      setDocuments(data.documents);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   useEffect(() => {
-    loadHistory();
-  }, []);
+    if (isLoaded && isSignedIn) {
+      loadHistory();
+      loadDocuments();
+    } else if (isLoaded && !isSignedIn) {
+      setDocuments([]);
+      setHistory([]);
+      setMessages([]);
+      setActiveDocId(null);
+    }
+  }, [isLoaded, isSignedIn]);
 
   const handleSend = async (text: string) => {
     const userMsg: MessageProps = { role: "user", content: text };
@@ -74,11 +120,17 @@ export default function App() {
     setIsStreaming(true);
 
     try {
+      const headers = await getAuthHeaders();
       const response = await fetch(`${apiUrl}/chat/stream`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
         body: JSON.stringify({ query: text, doc_id: activeDocId }),
       });
+
+      if (!response.ok || !response.body) {
+        const error = await response.text();
+        throw new Error(error || "Chat request failed");
+      }
 
       const sourcesHeader = response.headers.get("X-Sources");
       const sources = sourcesHeader ? JSON.parse(sourcesHeader) : [];
@@ -127,6 +179,41 @@ export default function App() {
 
   const activeDoc = documents.find((d) => d.id === activeDocId);
 
+  if (!isLoaded) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-50 dark:bg-[#0B0F19]">
+        <p className="text-gray-600 dark:text-gray-400">Loading...</p>
+      </div>
+    );
+  }
+
+  if (!isSignedIn) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-50 px-4 dark:bg-[#0B0F19]">
+        <div className="w-full max-w-sm rounded-lg border border-gray-200 bg-white p-6 text-center shadow-sm dark:border-gray-800 dark:bg-[#0F172A]">
+          <h1 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            DevDocs AI
+          </h1>
+          <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            Sign in to access your documents and chat history.
+          </p>
+          <div className="mt-5 flex justify-center gap-2">
+            <SignInButton mode="modal" forceRedirectUrl="/">
+              <button className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+                Sign In
+              </button>
+            </SignInButton>
+            <SignUpButton mode="modal" forceRedirectUrl="/">
+              <button className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800">
+                Sign Up
+              </button>
+            </SignUpButton>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -156,9 +243,11 @@ export default function App() {
         }}
         onSelectHistory={async (id) => {
           try {
-            const res = await fetch(`${apiUrl}/history`);
+            const headers = await getAuthHeaders();
+            const res = await fetch(`${apiUrl}/history`, { headers });
             const data = await res.json();
-            const selected = data.history[parseInt(id)];
+            const selected = data.history.find((item: HistoryResponseItem) => item.id === id);
+            if (!selected) return;
             setMessages([
               { role: "user", content: selected.query },
               { role: "ai", content: selected.response },
@@ -194,6 +283,7 @@ export default function App() {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onUpload={handleAddDocument}
+        getAuthHeaders={getAuthHeaders}
       />
     </motion.div>
   );
